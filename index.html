@@ -8,14 +8,8 @@
     <script>
 
     class Litterbug extends Phaser.Physics.Arcade.Sprite {
-        static this_x;
-        static this_y;
-
         constructor(scene, x, y, texture) {
             super(scene, x, y, texture);
-
-            this.this_x = x;
-            this.this_y = y;
 
             // Add this litterbug to the scene
             scene.add.existing(this);
@@ -26,87 +20,14 @@
             // Set initial properties for the litterbug
             this.speed = 50;
             this.target = null;
-        }
-
-        preload() {
-            this.load.spritesheet('litterbug', 'assets/litterbug.png', { frameWidth: 38, frameHeight: 64 }); //TODO: replace
 
             // Create a sprite for the trash
-            const litterbugSprite = this.add.sprite(
-                this.this_x,
-                this.this_y,
+            const litterbugSprite = scene.add.sprite(
+                x,
+                y,
                 `litterbug`
             );
-            
-            // Add the trash sprite to a group for easy management
-            // this.trashGroup.add(trashSprite);
         }
-
-        update() {
-            // Move the litterbug toward its target
-            if (this.target) {
-                // Calculate the angle between the litterbug and its target
-                const dx = this.target.x - this.x;
-                const dy = this.target.y - this.y;
-                const angle = Math.atan2(dy, dx);
-
-                // Move the litterbug in the direction of the target
-                this.setVelocityX(this.speed * Math.cos(angle));
-                this.setVelocityY(this.speed * Math.sin(angle));
-            } else {
-                this.findClosestGarbage(garbageGroup);
-            }
-        }
-
-        findClosestGarbage(garbageGroup) {
-            // Find the closest garbage sprite that hasn't been collected yet
-            let closestGarbage = null;
-            let closestDistance = Infinity;
-            garbageGroup.getChildren().forEach((garbage) => {
-                if (!garbage.collected) {
-                const distance = Phaser.Math.Distance.Between(this.x, this.y, garbage.x, garbage.y);
-                if (distance < closestDistance) {
-                    closestGarbage = garbage;
-                    closestDistance = distance;
-                }
-                }
-            });
-
-            // Set the litterbug's target to the closest garbage
-            this.target = closestGarbage;
-        }
-
-        moveTowardsNearestGarbage(garbageGroup) {
-            const nearestGarbage = garbageGroup.getClosest(this);
-            if (nearestGarbage) {
-                const dx = nearestGarbage.x - this.x;
-                const dy = nearestGarbage.y - this.y;
-                const distance = Math.sqrt(dx*dx + dy*dy);
-
-                if (distance > 0) {
-                    const speedMultiplier = Math.min(distance, this.speed) / distance;
-                    const vx = dx * speedMultiplier;
-                    const vy = dy * speedMultiplier;
-
-                    this.setVelocity(vx, vy);
-                }
-            }
-        }        
-
-        moveTowardsPlayer(player) {
-            const dx = player.x - this.x;
-            const dy = player.y - this.y;
-            const distance = Math.sqrt(dx*dx + dy*dy);
-
-            if (distance > 0) {
-                const speedMultiplier = Math.min(distance, this.speed * 2) / distance;
-                const vx = dx * speedMultiplier;
-                const vy = dy * speedMultiplier;
-
-                this.setVelocity(vx, vy);
-            }
-        }
-
     }   
 
     class MainScene extends Phaser.Scene {
@@ -153,10 +74,10 @@
                 createCallback: (litterbug) => {
                     litterbug.body.setCollideWorldBounds(true);
                 },
-                defaultKey: 'litterbug'
+                key: 'litterbug'
             });
 
-            this.addGarbage(3 + this.level);
+            this.addTrash(3 + this.level);
             this.addLitterbugs(1 + this.level);
 
             this.physics.add.collider(this.player, this.trashGroup, this.collectTrash, null, this);
@@ -182,10 +103,10 @@
 
             // Litterbugs behavior
             this.litterbugGroup.getChildren().forEach(litterbug => {
-                // Find closest uneaten garbage and move toward it
+                // Find closest uneaten trash and move toward it
                 // const closestTrash = this.trashGroup.getClosest(litterbug);
 
-                const closestTrash = litterbug.findClosestGarbage(this.trashGroup);
+                const closestTrash = this.findClosestTrash(this.trashGroup, litterbug);
                 if (closestTrash) {
                     const litterbugSpeed = 50;
                     const dx = closestTrash.x - litterbug.x;
@@ -208,16 +129,16 @@
                     litterbug.setVelocity(vx, vy);
                 }
 
-                // If the litterbug touches the player, subtract 50 points from the player and add a new piece of garbage
+                // If the litterbug touches the player, subtract 50 points from the player and add a new piece of trash
                 if (Phaser.Math.Distance.Between(litterbug.x, litterbug.y, this.player.x, this.player.y) < 20) {
                     this.score -= 50;
                     this.scoreLabel.updateScore(this.score);
-                    this.addGarbage(1);
+                    this.addTrash(1);
                 }
             });
         }
 
-        addGarbage(numItems) {
+        addTrash(numItems) {
             // const trashTypes = ['paper', 'can', 'apple', 'banana'];
             const trashTypes = ['bottle', 'jug', 'newspaper', 'brownbottle', 'tin', 'tincan', 'popcan', 'styrofoam', 'pizza'];
 
@@ -243,6 +164,8 @@
                 const litterbug = new Litterbug(this, Math.floor(Math.random() * 960), Math.floor(Math.random() * 720));
                 this.litterbugGroup.add(litterbug);
             }
+
+            // this.load.spritesheet('litterbug', 'assets/litterbug.png', { frameWidth: 38, frameHeight: 64 }); //TODO: replace
         }
 
         collectTrash(player, trash) {
@@ -256,7 +179,7 @@
                 this.level++;
                 this.score += ((this.level - 5) * 10) + 50;
                 this.refreshScore();
-                this.addGarbage(3 + this.level);
+                this.addTrash(3 + this.level);
                 this.addLitterbugs(this.level);
             }
         }
@@ -270,7 +193,7 @@
             const remainingTrash = this.trashGroup.children.entries.length;
             if (remainingTrash === 0) {
                 this.level++;
-                this.addGarbage(3 + this.level);
+                this.addTrash(3 + this.level);
                 this.addLitterbugs(this.level + 1);
             }
         }
@@ -278,6 +201,58 @@
         refreshScore() {
             this.scoreText.setText(`Points: ${this.score}`);
         }
+
+        findClosestTrash(litterbug, trashGroup) {
+            // Find the closest trash sprite that hasn't been collected yet
+            let closestTrash = null;
+            let closestDistance = Infinity;
+
+            /*
+            trashGroup.getChildren().forEach((trash) => {
+                // if (!trash.collected) {
+                const distance = Phaser.Math.Distance.Between(litterbug.x, litterbug.y, trash.x, trash.y);
+                if (distance < closestDistance) {
+                    closestTrash = trash;
+                    closestDistance = distance;
+                }
+                // }
+            });
+            */
+
+            // Set the litterbug's target to the closest trash
+            // this.target = closestTrash;
+        }
+
+        moveTowardsNearestTrash(trashGroup) {
+            const nearestTrash = trashGroup.getClosest(this);
+            if (nearestTrash) {
+                const dx = nearestTrash.x - this.x;
+                const dy = nearestTrash.y - this.y;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+
+                if (distance > 0) {
+                    const speedMultiplier = Math.min(distance, this.speed) / distance;
+                    const vx = dx * speedMultiplier;
+                    const vy = dy * speedMultiplier;
+
+                    this.setVelocity(vx, vy);
+                }
+            }
+        }        
+
+        moveTowardsPlayer(player) {
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const distance = Math.sqrt(dx*dx + dy*dy);
+
+            if (distance > 0) {
+                const speedMultiplier = Math.min(distance, this.speed * 2) / distance;
+                const vx = dx * speedMultiplier;
+                const vy = dy * speedMultiplier;
+
+                this.setVelocity(vx, vy);
+            }
+        }        
 
     }
     const config = {
