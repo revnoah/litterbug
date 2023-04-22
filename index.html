@@ -153,10 +153,11 @@
                 createCallback: (litterbug) => {
                     litterbug.body.setCollideWorldBounds(true);
                 },
+                defaultKey: 'litterbug'
             });
 
             this.addGarbage(3 + this.level);
-            this.addLitterbugs(this.level);
+            this.addLitterbugs(1 + this.level);
 
             this.physics.add.collider(this.player, this.trashGroup, this.collectTrash, null, this);
             this.physics.add.collider(this.player, this.litterbugGroup, this.eatTrash, null, this);
@@ -238,34 +239,11 @@
         }
 
         addLitterbugs(numItems) {
-
-            console.log(numItems);
-
             for (let i = 0; i < numItems; i++) {
                 const litterbug = new Litterbug(this, Math.floor(Math.random() * 960), Math.floor(Math.random() * 720));
-
-                console.log(litterbug);
-
                 this.litterbugGroup.add(litterbug);
             }
         }
-
-        /*
-        addLitterbugs(numItems) {
-
-            for (let i = 0; i < numItems; i++) {
-                // Create a sprite for the trash
-                const litterbugSprite = this.add.sprite(
-                    Math.floor(Math.random() * 960),
-                    Math.floor(Math.random() * 720),
-                    `litterbug`
-                );
-                
-                // Add the trash sprite to a group for easy management
-                this.litterbugGroup.add(litterbugSprite);
-            }
-        }
-        */
 
         collectTrash(player, trash) {
             this.score += 10;
