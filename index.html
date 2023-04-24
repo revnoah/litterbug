@@ -59,7 +59,8 @@
         create() {
             this.player = this.physics.add.sprite(400, 300, 'player');
             // this.player.add.existing(this.player);
-            this.player.body.setSize(32, 32);
+            // this.player.body.setSize(32, 32);
+            this.player.setSize(32, 32);
             this.player.setCollideWorldBounds(true);
 
             this.cursors = this.input.keyboard.createCursorKeys();
@@ -81,7 +82,8 @@
             this.addLitterbugs(1 + this.level);
 
             this.physics.add.collider(this.player, this.trashGroup, this.collectTrash, null, this);
-            this.physics.add.collider(this.player, this.litterbugGroup, this.eatTrash, null, this);
+            this.physics.add.collider(this.player, this.litterbugGroup, this.eatPlayer, null, this);
+            // this.physics.add.collider(this.litterbugGroup, this.trashGroup, this.eatTrash, null, this);
         }
 
         update() {
@@ -106,20 +108,29 @@
                 // Find closest uneaten trash and move toward it
                 // const closestTrash = this.trashGroup.getClosest(litterbug);
 
-                const closestTrash = this.findClosestTrash(this.trashGroup, litterbug);
-                if (closestTrash) {
-                    const litterbugSpeed = 50;
-                    const dx = closestTrash.x - litterbug.x;
-                    const dy = closestTrash.y - litterbug.y;
-                    const angle = Math.atan2(dy, dx);
-                    const vx = Math.cos(angle) * litterbugSpeed;
-                    const vy = Math.sin(angle) * litterbugSpeed;
-                    litterbug.setVelocity(vx, vy);
+                if (litterbug.target === null) {
+                    let closestTrash = this.findClosestTrash(litterbug);
+                    if (closestTrash) {
+                        const litterbugSpeed = 50;
+                        const dx = closestTrash.x - litterbug.x;
+                        const dy = closestTrash.y - litterbug.y;
+                        const angle = Math.atan2(dy, dx);
+                        const vx = Math.cos(angle) * litterbugSpeed;
+                        const vy = Math.sin(angle) * litterbugSpeed;
+                        litterbug.setVelocity(vx, vy);
+                        litterbug.target = closestTrash;
+
+                        if (dx < 1 && dy < 1) {
+                            // closestTrash.destroy();
+                            // this.score -= 10;
+                            litterbug.target = null;
+                        }
+                    }
                 }
 
                 // If litterbug is within 50 pixels of the player, move toward the player at double speed
                 const distanceToPlayer = Phaser.Math.Distance.Between(litterbug.x, litterbug.y, this.player.x, this.player.y);
-                if (distanceToPlayer < 50) {
+                if (distanceToPlayer < 50 && litterbug.target !== this.player) {
                     const litterbugSpeed = 100;
                     const dx = this.player.x - litterbug.x;
                     const dy = this.player.y - litterbug.y;
@@ -127,6 +138,7 @@
                     const vx = Math.cos(angle) * litterbugSpeed;
                     const vy = Math.sin(angle) * litterbugSpeed;
                     litterbug.setVelocity(vx, vy);
+                    litterbug.target = this.player;
                 }
 
                 // If the litterbug touches the player, subtract 50 points from the player and add a new piece of trash
@@ -153,7 +165,9 @@
                     Math.floor(Math.random() * 720),
                     `trash-${trashType}`
                 );
-                
+                trashSprite.setSize(32, 64);
+                // trashSprite.setOffset(16, 32);
+
                 // Add the trash sprite to a group for easy management
                 this.trashGroup.add(trashSprite);
             }
@@ -162,10 +176,22 @@
         addLitterbugs(numItems) {
             for (let i = 0; i < numItems; i++) {
                 const litterbug = new Litterbug(this, Math.floor(Math.random() * 960), Math.floor(Math.random() * 720));
+                litterbug.setSize(38, 64);
                 this.litterbugGroup.add(litterbug);
             }
+        }
 
-            // this.load.spritesheet('litterbug', 'assets/litterbug.png', { frameWidth: 38, frameHeight: 64 }); //TODO: replace
+        levelUp() {
+            this.level++;
+
+            this.trashGroup = this.physics.add.group();
+            this.litterbugGroup = this.physics.add.group({
+                classType: Litterbug,
+                createCallback: (litterbug) => {
+                    litterbug.body.setCollideWorldBounds(true);
+                },
+                key: 'litterbug'
+            });
         }
 
         collectTrash(player, trash) {
@@ -176,11 +202,9 @@
 
             const remainingTrash = this.trashGroup.children.entries.length;
             if (remainingTrash === 0) {
-                this.level++;
                 this.score += ((this.level - 5) * 10) + 50;
                 this.refreshScore();
-                this.addTrash(3 + this.level);
-                this.addLitterbugs(this.level);
+                this.levelUp();
             }
         }
 
@@ -192,35 +216,42 @@
 
             const remainingTrash = this.trashGroup.children.entries.length;
             if (remainingTrash === 0) {
-                this.level++;
-                this.addTrash(3 + this.level);
-                this.addLitterbugs(this.level + 1);
+                this.levelUp();
             }
+        }
+
+        eatPlayer(litterbug) {
+            this.score -= 10;
+            this.refreshScore();
+
+            //TODO: replace with dynamic location
+            this.player.x = 512;
+            this.player.y = 384;
+
+            // this.addTrash(3);
+            // this.addLitterbugs(1);
         }
 
         refreshScore() {
             this.scoreText.setText(`Points: ${this.score}`);
         }
 
-        findClosestTrash(litterbug, trashGroup) {
+        findClosestTrash(litterbug) {
             // Find the closest trash sprite that hasn't been collected yet
             let closestTrash = null;
             let closestDistance = Infinity;
 
-            /*
-            trashGroup.getChildren().forEach((trash) => {
-                // if (!trash.collected) {
+            this.trashGroup.getChildren().forEach((trash) => {
                 const distance = Phaser.Math.Distance.Between(litterbug.x, litterbug.y, trash.x, trash.y);
+
                 if (distance < closestDistance) {
                     closestTrash = trash;
                     closestDistance = distance;
                 }
-                // }
             });
-            */
 
             // Set the litterbug's target to the closest trash
-            // this.target = closestTrash;
+            return closestTrash;
         }
 
         moveTowardsNearestTrash(trashGroup) {
@@ -252,7 +283,7 @@
 
                 this.setVelocity(vx, vy);
             }
-        }        
+        }
 
     }
     const config = {
